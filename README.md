@@ -93,12 +93,16 @@ did not exercise (new game, save load, save, calls from other threads, part B af
 
 ## Verified and not verified
 
-Verified on one game only (the author's: 1.6.1170, about 3,700 plugins, about 350 SKSE plugins):
+Verified on the author's game (1.6.1170, about 3,700 plugins, about 350 SKSE plugins):
 
-- nine launches to the main menu, among them two with every answer of A and three with every call of B compared
-  against the engine: 0 mismatches, every audit clean;
-- one session with a new game and five saves, one session that loaded a save, played and saved: 0 mismatches,
-  every audit clean, no fallback; several thousand calls of A from other threads, none overlapping.
+- twelve launches to the main menu, among them two with every answer of A and three with every call of B
+  compared against the engine: 0 mismatches, every audit clean;
+- one session with a new game and five saves, two sessions that loaded a save: 0 mismatches, every audit clean,
+  no fallback; several thousand calls of A from other threads, none overlapping.
+
+One outside tester (about 1,200 plugins, DynDOLOD): one launch to the main menu, 0 mismatches, audits clean.
+The log's "engine time saved" is an estimate from sampled engine time, not the wall-clock gain (about 70 s
+estimated was 60 s measured on the author's game).
 
 Not verified:
 
