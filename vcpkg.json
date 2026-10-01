@@ -1,0 +1,6 @@
+{
+  "name": "loadaccel",
+  "version-string": "0.1.0",
+  "builtin-baseline": "1577f17ee57f42a0ef6d75bbb82cb37d0b76d7e8",
+  "dependencies": [ "directxmath", "directxtk", "fmt", "rapidcsv", "simpleini", "spdlog", "xbyak" ]
+}

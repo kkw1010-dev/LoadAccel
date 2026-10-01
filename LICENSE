@@ -1,0 +1,11 @@
+LoadAccel
+Copyright (c) 2026 kkw1010-dev. All rights reserved.
+
+This source code is made available for inspection only. No permission is granted to copy, modify, publish,
+distribute, sublicense or sell it or builds made from it, in whole or in part, without the prior written
+permission of the copyright holder.
+
+Third-party components used when building keep their own licences (CommonLibSSE-NG: MIT; spdlog, fmt, simpleini,
+DirectXMath, DirectXTK: MIT; rapidcsv, xbyak: BSD-3-Clause). None of their code is contained in this repository.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
