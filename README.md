@@ -7,7 +7,9 @@ An SKSE plugin that shortens the data load (launch to main menu) on very large l
 searches out of the engine's load path. On the author's load order (about 3,700 plugins) the load went from
 256 s to 196 s. Both costs grow with the number of plugins and overrides; a small load order gains little.
 
-There is no binary release.
+Binary: the 0.3.0 test build is released through Nexus Mods as "LoadAccel - Faster Data Load (Test Build)", with the
+licence, the third-party notices and its exact source as a second file. Tag `v0.3.0-test-gpl` is that source
+under GPL-3.0-or-later, apart from the plugin author string the DLL was built with (see Licence).
 
 ## What it does
 
