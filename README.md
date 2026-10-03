@@ -118,6 +118,11 @@ unpatched ones only in the ways unpatched launches differ from each other.
 
 ## Licence
 
-Copyright (c) 2026 kkw1010-dev. All rights reserved (see `LICENSE`): the source is here to be read, not to be
-redistributed or re-uploaded, as source or as a build. Built with CommonLibSSE-NG (MIT), spdlog and fmt (MIT) and
-other vcpkg packages under permissive licences. This repository contains no code or data of the game.
+LoadAccel is licensed under the GNU General Public License v3.0 or later (`LICENSE`). It is built with
+CommonLibSSE-NG, which is licensed under GPL-3.0-or-later with a Modding Exception and a GPL-3.0 Linking Exception
+(it was MIT until mid-2026); the notices of all code compiled into the DLL are in `THIRD-PARTY-NOTICES.txt`. This
+repository contains no code or data of the game.
+
+The 0.3.0 test build (DLL SHA-256 `378E613AF142F38675FDC60611010968411CB541EC12870EF2C1D10237A620CB`) was built
+from this source with an earlier plugin author string (`AUTHOR` in `CMakeLists.txt`; `LoadAccel` from the next
+version on); its source archive carries that line as it was built.
