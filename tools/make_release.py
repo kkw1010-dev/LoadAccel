@@ -86,13 +86,21 @@ def notices(build_dir):
 
 def check_private(paths, root):
     profile = os.path.expanduser("~")
-    words = {profile, profile.replace("\\", "/"), os.path.basename(profile)}
+    user = os.path.basename(profile).lower()
+    words = {profile.lower(), profile.replace("\\", "/").lower()}
     for p in paths:
         data = open(p, "rb").read().lower()
         for w in words:
             for enc in (w.encode("utf-8"), w.encode("utf-16-le")):
-                if enc.lower() in data:
-                    raise SystemExit("%s holds this machine's user name or profile path" % os.path.relpath(p, root))
+                if enc in data:
+                    raise SystemExit("%s holds this machine's profile path" % os.path.relpath(p, root))
+        # The bare user name is a prefix of the public GitHub account (kkw1010-dev): that one is allowed.
+        for enc, tail in ((user.encode("utf-8"), b"10-dev"), (user.encode("utf-16-le"), "10-dev".encode("utf-16-le"))):
+            at = data.find(enc)
+            while at != -1:
+                if not data.startswith(tail, at + len(enc)):
+                    raise SystemExit("%s holds this machine's user name" % os.path.relpath(p, root))
+                at = data.find(enc, at + 1)
 
 
 def seven_zip(folder, archive):
