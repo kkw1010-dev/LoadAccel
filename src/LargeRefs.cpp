@@ -1,10 +1,10 @@
-// Target B: TESObjectREFR::InitItemImpl (ID 19507) calls, for every exterior reference whose file is not a
-// master-type file,
-//   ID 18216  void Remove(BGSLargeRefData* this, FormID)       walks both cell -> FormID[] maps (ID 18242 twice)
-//   ID 18218  void Readd(BGSLargeRefData* this, TESObjectREFR*) lists the reference again through ID 18215
-// with this = worldspace + 0x250. All read off the disassembly of SkyrimSE.exe 1.6.1170. The call to 18216
-// is wrapped here, and the three calls that change the lists by other means are watched (18215 append, 18214
-// RNAM load, 18213 destructor); what happens inside the wrappers is LargeRefCore.h (tested offline by tests/).
+// Target B: TESObjectREFR::InitItemImpl (ID 19507 / 19105, IDs as 1.6.1170 / 1.5.97) calls, for every exterior
+// reference whose file is not a master-type file,
+//   ID 18216 / 17804  void Remove(BGSLargeRefData* this, FormID)       walks both cell -> FormID[] maps (ID 18242 / 17828 twice)
+//   ID 18218 / 17806  void Readd(BGSLargeRefData* this, TESObjectREFR*) lists the reference again through ID 18215 / 17803
+// with this = worldspace + 0x250. All read off the disassembly of SkyrimSE.exe 1.6.1170 and 1.5.97. The call to
+// Remove is wrapped here, and the three calls that change the lists by other means are watched (append, RNAM load,
+// destructor); what happens inside the wrappers is LargeRefCore.h (tested offline by tests/).
 
 #include "LargeRefs.h"
 
@@ -20,17 +20,13 @@ namespace LargeRefs
 		using loadaccel::Now;
 		using loadaccel::Seconds;
 
-		constexpr std::uint64_t kRemove = 18216;
-		constexpr std::uint64_t kAppend = 18215;
-		constexpr std::uint64_t kLoad = 18214;
-		constexpr std::uint64_t kDestroy = 18213;
-
-		// TESWorldSpace::largeRefData (the 'this' of all four functions is worldspace + 0x250).
+		// TESWorldSpace::largeRefData (the 'this' of all four functions is worldspace + 0x250 on both runtimes).
 		constexpr std::ptrdiff_t kLargeRefDataOffset = 0x250;
 
-		// The code the analysis read: Address Library ID, offset and size of the stretch, FNV-1a of its bytes in
-		// 1.6.1170. If another plugin has patched one of them (or the image differs), nothing is installed.
-		// ID 18218 is hashed around its first call, which another plugin hooks (the bytes of that call differ per run).
+		// The code the analysis read: Address Library ID, offset and size of the stretch, FNV-1a of its bytes.
+		// If another plugin has patched one of them (or the image differs), nothing is installed.
+		// Readd is hashed around its first call, which another plugin hooks on 1.6.1170 (the bytes of that call
+		// differ per run); 1.5.97 is cut the same way.
 		struct Code
 		{
 			std::uint64_t id;
@@ -39,14 +35,6 @@ namespace LargeRefs
 			std::uint64_t hash;
 			const char* what;
 		};
-		constexpr std::array<Code, 6> kCode{ {
-			{ 18216, 0, 103, 0x3ABC282E71BDA3CDull, "Remove: the two walks" },
-			{ 18242, 0, 253, 0x0D23C00649ABBDC1ull, "the walk over one map" },
-			{ 18215, 0, 544, 0x363D2E70771BD423ull, "Append" },
-			{ 19507, 2139, 30, 0xB9516772E6788B40ull, "InitItemImpl: formID and worldspace + 0x250 into Remove, then Readd" },
-			{ 18218, 0, 86, 0x7887C322ACEB350Eull, "Readd, up to its first call" },
-			{ 18218, 90, 282, 0xAFBD41C8E2C44CABull, "Readd, after its first call" },
-		} };
 
 		struct Site
 		{
@@ -55,15 +43,65 @@ namespace LargeRefs
 			std::uint64_t callee;  // Address Library ID it must call
 		};
 
-		// Every direct call to the four functions in the 1.6.1170 image (E8/E9 scan of the whole text section; no
-		// stored pointers to them). The destructor is also reached by a jump from an unwind funclet (ID 116391),
-		// which only runs when a constructor throws.
-		constexpr std::array<Site, 4> kSites{ {
-			{ 19507, 2149, kRemove },
-			{ 18218, 303, kAppend },
-			{ 20453, 1561, kLoad },
-			{ 20447, 967, kDestroy },
-		} };
+		// Everything that differs between the two runtimes.
+		struct Image
+		{
+			std::uint64_t remove;
+			std::uint64_t append;
+			std::uint64_t load;
+			std::uint64_t destroy;
+			std::array<Code, 6> code;
+			// Every direct call to the four functions (E8/E9 scan of the whole text section; no stored pointers to
+			// them): Remove, Append, the RNAM load, the destructor. The destructor is also reached by a jump from an
+			// unwind funclet, which only runs when a constructor throws.
+			std::array<Site, 4> sites;
+		};
+
+		// SkyrimSE.exe 1.6.1170.0 (unwind funclet: ID 116391).
+		constexpr Image k1170{
+			.remove = 18216,
+			.append = 18215,
+			.load = 18214,
+			.destroy = 18213,
+			.code = { {
+				{ 18216, 0, 103, 0x3ABC282E71BDA3CDull, "Remove: the two walks" },
+				{ 18242, 0, 253, 0x0D23C00649ABBDC1ull, "the walk over one map" },
+				{ 18215, 0, 544, 0x363D2E70771BD423ull, "Append" },
+				{ 19507, 2139, 30, 0xB9516772E6788B40ull, "InitItemImpl: formID and worldspace + 0x250 into Remove, then Readd" },
+				{ 18218, 0, 86, 0x7887C322ACEB350Eull, "Readd, up to its first call" },
+				{ 18218, 90, 282, 0xAFBD41C8E2C44CABull, "Readd, after its first call" },
+			} },
+			.sites = { {
+				{ 19507, 2149, 18216 },
+				{ 18218, 303, 18215 },
+				{ 20453, 1561, 18214 },
+				{ 20447, 967, 18213 },
+			} },
+		};
+
+		// SkyrimSE.exe 1.5.97.0 (unwind funclet: ID 113408).
+		constexpr Image k1597{
+			.remove = 17804,
+			.append = 17803,
+			.load = 17802,
+			.destroy = 17801,
+			.code = { {
+				{ 17804, 0, 124, 0x3584C0293083F872ull, "Remove: the two walks" },
+				{ 17828, 0, 209, 0xE7EBB1BF6841E4EAull, "the walk over one map" },
+				{ 17803, 0, 780, 0xC706160C30D7FB09ull, "Append" },
+				{ 19105, 1897, 30, 0xCAFC9EF55C7C5914ull, "InitItemImpl: formID and worldspace + 0x250 into Remove, then Readd" },
+				{ 17806, 0, 86, 0x38991219C6D02DB2ull, "Readd, up to its first call" },
+				{ 17806, 90, 282, 0x1A8179D6C66C60E0ull, "Readd, after its first call" },
+			} },
+			.sites = { {
+				{ 19105, 1907, 17804 },
+				{ 17806, 303, 17803 },
+				{ 20019, 1626, 17802 },
+				{ 20013, 499, 17801 },
+			} },
+		};
+
+		const Image* image = &k1170;
 
 		using Remove_t = void(LargeRefData* a_data, std::uint32_t a_formID);
 		using Append_t = std::uintptr_t(LargeRefData* a_data, std::uint32_t a_formID, std::uint32_t a_cell, std::uint32_t a_listedCell);
@@ -177,10 +215,10 @@ namespace LargeRefs
 			return origDestroy(a_data);
 		}
 
-		bool ImageIsTheAnalysedOne(std::array<std::uintptr_t, kSites.size()>& a_sites)
+		bool ImageIsTheAnalysedOne(std::array<std::uintptr_t, 4>& a_sites)
 		{
 			bool ok = true;
-			for (const auto& code : kCode) {
+			for (const auto& code : image->code) {
 				const auto hash = loadaccel::CodeHash(REL::ID(code.id).address() + code.offset, code.size);
 				if (hash != code.hash) {
 					logs::error("ID {} + {} ({}) is not the code that was analysed (hash {:016X}, expected {:016X}): another plugin patched it, or the image differs",
@@ -188,10 +226,11 @@ namespace LargeRefs
 					ok = false;
 				}
 			}
-			for (std::size_t i = 0; i < kSites.size(); ++i) {
-				a_sites[i] = REL::ID(kSites[i].id).address() + kSites[i].offset;
-				if (!loadaccel::IsCallTo(a_sites[i], REL::ID(kSites[i].callee).address())) {
-					logs::error("call site ID {} + {} is not the expected call to ID {}", kSites[i].id, kSites[i].offset, kSites[i].callee);
+			for (std::size_t i = 0; i < image->sites.size(); ++i) {
+				const auto& site = image->sites[i];
+				a_sites[i] = REL::ID(site.id).address() + site.offset;
+				if (!loadaccel::IsCallTo(a_sites[i], REL::ID(site.callee).address())) {
+					logs::error("call site ID {} + {} is not the expected call to ID {}", site.id, site.offset, site.callee);
 					ok = false;
 				}
 			}
@@ -199,14 +238,15 @@ namespace LargeRefs
 		}
 	}
 
-	bool Install(const Settings& a_settings)
+	bool Install(const Settings& a_settings, loadaccel::Runtime a_runtime)
 	{
 		settings = a_settings;
+		image = a_runtime == loadaccel::Runtime::k1597 ? &k1597 : &k1170;
 		if (settings.stage < 1 || settings.stage > 3) {
 			logs::info("large refs: stage {} = off, nothing installed", settings.stage);
 			return true;
 		}
-		std::array<std::uintptr_t, kSites.size()> address{};
+		std::array<std::uintptr_t, 4> address{};
 		if (!ImageIsTheAnalysedOne(address)) {
 			logs::error("large refs: nothing installed");
 			return false;
@@ -218,8 +258,8 @@ namespace LargeRefs
 		origAppend = trampoline.write_call<5>(address[1], AppendThunk);
 		origLoad = trampoline.write_call<5>(address[2], LoadThunk);
 		origDestroy = trampoline.write_call<5>(address[3], DestroyThunk);
-		logs::info("large refs: stage {} ({}); wrapped the call to ID 18216 in InitItemImpl, watching ID 18215 (append), 18214 (RNAM load), 18213 (destructor){}",
-			settings.stage, StageName(settings.stage),
+		logs::info("large refs: stage {} ({}); wrapped the call to ID {} in InitItemImpl, watching ID {} (append), {} (RNAM load), {} (destructor){}",
+			settings.stage, StageName(settings.stage), image->remove, image->append, image->load, image->destroy,
 			settings.stage == 3 ? std::format("; first {} skips all checked by a full walk, then 1 in {}", settings.compareFirst, settings.sampleEvery) :
 			settings.stage == 1 ? std::format("; 1 call in {} is walked for the statistics", settings.sampleEvery) :
 								  std::string());
@@ -322,9 +362,10 @@ namespace LargeRefs
 		logs::info("  calls {}: set said \"may be listed\" {} (engine walked), \"in no list\" {}; full walks done to check {} of which {} found the FormID; "
 				   "set a superset by {} (said \"may be\", was not)",
 			calls, stats.inSet.load(), stats.notInSet.load(), stats.walked.load(), stats.occurred.load(), stats.setWasSuperset.load());
-		logs::info("  list changes seen: ID 18215 appends {} ({} into an existing set), ID 18214 RNAM loads {} ({} after the set existed); list walks to fill "
+		logs::info("  list changes seen: ID {} appends {} ({} into an existing set), ID {} RNAM loads {} ({} after the set existed); list walks to fill "
 				   "sets {} in {:.3f} s",
-			stats.appends.load(), stats.appendsNoted.load(), stats.loads.load(), stats.rewalks.load(), stats.builds.load(), Seconds(stats.buildTicks.load()));
+			image->append, stats.appends.load(), stats.appendsNoted.load(), image->load, stats.loads.load(), stats.rewalks.load(), stats.builds.load(),
+			Seconds(stats.buildTicks.load()));
 		if (const auto late = stats.lateCalls.load()) {
 			logs::info("  after the data load the engine walks on every call: {} calls; {} tested, the set would have skipped {}, wrongly {}", late,
 				stats.lateSampled.load(), stats.lateWouldSkip.load(), stats.lateWrong.load());

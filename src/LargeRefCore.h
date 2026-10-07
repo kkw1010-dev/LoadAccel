@@ -4,7 +4,8 @@
 // No engine or SKSE dependency: the plugin (LargeRefs.cpp) and the offline test (tests/largeref_test.cpp)
 // both drive this file, the test against a model of the engine functions written from the disassembly.
 //
-// What the engine does (SkyrimSE.exe 1.6.1170): TESObjectREFR::InitItemImpl (ID 19507) calls ID 18216 for
+// What the engine does (SkyrimSE.exe 1.6.1170 and 1.5.97 alike; the IDs here are 1.6.1170's, LargeRefs.cpp has
+// both sets): TESObjectREFR::InitItemImpl (ID 19507) calls ID 18216 for
 // every exterior reference whose file is not a master-type file. 18216 walks both cell -> FormID[] maps
 // of the worldspace's BGSLargeRefData (cellFormIDMap at +0x00, cellFormIDMapFiltered at +0x60) through
 // ID 18242 and overwrites every occurrence of the reference's FormID. When the FormID occurs nowhere,
@@ -63,8 +64,10 @@ namespace loadaccel
 	static_assert(offsetof(LargeRefMap, entries) == 0x28);
 	static_assert(sizeof(LargeRefMap) == 0x30);
 
-	// BGSLargeRefData: the two maps ID 18216 walks. (+0x30 is formIDCellMap; 1.6.1170 has two more maps behind
-	// these, at +0x98 and +0xC8. ID 18216 touches none of the three.)
+	// BGSLargeRefData: the two maps ID 18216 walks. (+0x30 is formIDCellMap; both runtimes have two more maps behind
+	// these, at +0x98 and +0xC8: the constructors ID 18212 / 17800 are the same code. ID 18216 touches none of the three.
+	// 1.5.97's Remove hands the walk a pointer 8 bytes into each map, and its walk reads capacity and entries 8 bytes
+	// lower: the same fields.)
 	struct LargeRefData
 	{
 		LargeRefMap full;         // 0x00 cellFormIDMap

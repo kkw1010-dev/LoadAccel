@@ -3,6 +3,7 @@
 #   VCPKG_ROOT      vcpkg checkout (CMakePresets.json uses it)
 #   COMMONLIB_DIR   CommonLibSSE-NG checkout (alandtse/CommonLibVR, branch ng)
 #   LOADACCEL_IMAGE optional: a memory image of SkyrimSE.exe 1.6.1170 for the constants check
+#   LOADACCEL_IMAGE_SE optional: SkyrimSE.exe 1.5.97 without the Steam stub (Steamless output) for the same check
 #   $PrivacyWords   extra strings that must not appear in the DLL
 $PrivacyWords = @()
 $local = Join-Path $PSScriptRoot 'local.ps1'

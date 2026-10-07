@@ -22,13 +22,18 @@ if (-not $SkipTests) {
     if ($LASTEXITCODE -ne 0) { throw 'Offline tests failed: no DLL is built from code that fails them.' }
 }
 
-# Every engine constant in the sources must match the memory image the analysis was done on.
+# Every engine constant in the sources must match the images the analysis was done on: 1.6.1170 (LOADACCEL_IMAGE)
+# and 1.5.97 (LOADACCEL_IMAGE_SE).
 $verify = Join-Path $Repo 'research\verify_constants.py'
-if ($env:LOADACCEL_IMAGE -and (Test-Path $env:LOADACCEL_IMAGE) -and (Test-Path $verify)) {
-    python $verify $env:LOADACCEL_IMAGE
-    if ($LASTEXITCODE -ne 0) { throw 'A constant in the sources does not match the memory image: nothing is built.' }
+$images = @()
+if ($env:LOADACCEL_IMAGE -and (Test-Path $env:LOADACCEL_IMAGE)) { $images += @('--ae', $env:LOADACCEL_IMAGE) }
+if ($env:LOADACCEL_IMAGE_SE -and (Test-Path $env:LOADACCEL_IMAGE_SE)) { $images += @('--se', $env:LOADACCEL_IMAGE_SE) }
+if ($images -and (Test-Path $verify)) {
+    python $verify @images
+    if ($LASTEXITCODE -ne 0) { throw 'A constant in the sources does not match an image: nothing is built.' }
+    if ($images.Count -lt 4) { Write-Host 'NOTE: only one runtime image given (LOADACCEL_IMAGE / LOADACCEL_IMAGE_SE): the other runtime''s constants were not re-checked here.' }
 } else {
-    Write-Host 'NOTE: no memory image of SkyrimSE.exe given (LOADACCEL_IMAGE): the constants were not re-checked here. The DLL checks the code it relies on at load anyway.'
+    Write-Host 'NOTE: no image of SkyrimSE.exe given (LOADACCEL_IMAGE, LOADACCEL_IMAGE_SE): the constants were not re-checked here. The DLL checks the code it relies on at load anyway.'
 }
 
 # No build servers left behind: Ninja, embedded debug info, no telemetry; stop only what this build started.

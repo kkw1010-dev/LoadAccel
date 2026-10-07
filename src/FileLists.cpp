@@ -1,9 +1,10 @@
 // Target A: the engine keeps one global table of distinct source-file lists (TESFileArray, the thing
-// TESForm::sourceFiles points at) and searches it linearly in two functions:
-//   ID 14580  TESFileArray* FindOrAdd(TESFile** files, std::uint32_t count)
-//   ID 14569  TESFileArray* WithFileAdded(TESFileArray* list, TESFile* file)
-// Both were read off the disassembly of SkyrimSE.exe 1.6.1170 (research/disasm.py). Their five call sites
-// are wrapped here; what happens inside the wrapper is FileListCore.h (tested offline by tests/).
+// TESForm::sourceFiles points at) and searches it linearly in two functions (IDs: 1.6.1170 / 1.5.97):
+//   ID 14580 / 14423  TESFileArray* FindOrAdd(TESFile** files, std::uint32_t count)
+//   ID 14569 / 14415  TESFileArray* WithFileAdded(TESFileArray* list, TESFile* file)
+// Both were read off the disassembly of SkyrimSE.exe 1.6.1170 (research/disasm.py) and 1.5.97
+// (research/se1597/twins.py). Their call sites are wrapped here; what happens inside the wrapper is
+// FileListCore.h (tested offline by tests/).
 
 #include "FileLists.h"
 
@@ -20,17 +21,8 @@ namespace FileLists
 		using loadaccel::Seconds;
 		using loadaccel::SiteStats;
 
-		// BSTArray<TESFileArray*>: data pointer at +0x00, element count at +0x10 (read off both functions,
-		// and checked against the code at install time).
-		constexpr std::uintptr_t kTableData = 0x20FBB68;
-		constexpr std::uintptr_t kTableCount = 0x20FBB78;
-
-		constexpr std::uint64_t kFindOrAdd = 14580;
-		constexpr std::uint64_t kWithFileAdded = 14569;
-		constexpr std::uint64_t kWithoutFile = 14570;
-
 		// The functions the analysis read: Address Library ID, offset and size of the stretch, FNV-1a of its
-		// bytes in 1.6.1170. If another plugin has patched one of them (or the image differs), nothing is installed.
+		// bytes. If another plugin has patched one of them (or the image differs), nothing is installed.
 		struct Code
 		{
 			std::uint64_t id;
@@ -39,33 +31,83 @@ namespace FileLists
 			std::uint64_t hash;
 			const char* what;
 		};
-		constexpr std::array<Code, 3> kCode{ {
-			{ 14580, 0, 360, 0xBCA9CDEDDF7BA66Aull, "FindOrAdd" },
-			{ 14569, 0, 391, 0x5295487682E7F584ull, "WithFileAdded" },
-			{ 14570, 0, 631, 0xD6EE899FDCD52EA1ull, "WithoutFile (its own inlined search and append)" },
-		} };
 
 		struct Site
 		{
-			std::uint64_t id;      // Address Library ID of the calling function
+			std::uint64_t id;      // Address Library ID of the calling function; 0: no such call on this runtime
 			std::ptrdiff_t offset; // offset of the E8 call inside it
 			std::uint64_t callee;  // Address Library ID it must call
 		};
 
-		// Every direct call to the three functions in the 1.6.1170 image (linear sweep of the whole image; no jumps
-		// to them, no stored pointers). The first five are answered through the index; ID 14570 does its own search
-		// and append and is only put under the same lock.
+		// Sites 0-2 call FindOrAdd, 3-4 WithFileAdded, 5-6 WithoutFile. The first five are answered through the
+		// index; WithoutFile does its own search and append and is only put under the same lock.
 		constexpr std::size_t kSiteCount = 7;
 		constexpr std::size_t kLookupSites = 5;
-		constexpr std::array<Site, kSiteCount> kSites{ {
-			{ 14570, 230, kFindOrAdd },
-			{ 14571, 155, kFindOrAdd },
-			{ 14572, 19, kFindOrAdd },
-			{ 14593, 469, kWithFileAdded },
-			{ 14623, 144, kWithFileAdded },
-			{ 14593, 420, kWithoutFile },
-			{ 14623, 182, kWithoutFile },
-		} };
+
+		// Everything that differs between the two runtimes.
+		struct Image
+		{
+			std::uint64_t findOrAdd;
+			std::uint64_t withFileAdded;
+			std::uint64_t withoutFile;
+			// BSTArray<TESFileArray*>: data pointer at +0x00, element count at +0x10 (read off both functions,
+			// and checked against FindOrAdd's code at install time).
+			std::uintptr_t tableData;
+			std::uintptr_t tableCount;
+			std::array<Code, 3> code;
+			// Every direct call to the three functions (whole-image E8/E9 scan; no jumps to them, no stored pointers).
+			std::array<Site, kSiteCount> sites;
+		};
+
+		// SkyrimSE.exe 1.6.1170.0. Sites 3 and 5 are in the TESForm constructor (ID 14593), which carries its own
+		// copy of TESForm::SetFile (ID 14623).
+		constexpr Image k1170{
+			.findOrAdd = 14580,
+			.withFileAdded = 14569,
+			.withoutFile = 14570,
+			.tableData = 0x20FBB68,
+			.tableCount = 0x20FBB78,
+			.code = { {
+				{ 14580, 0, 360, 0xBCA9CDEDDF7BA66Aull, "FindOrAdd" },
+				{ 14569, 0, 391, 0x5295487682E7F584ull, "WithFileAdded" },
+				{ 14570, 0, 631, 0xD6EE899FDCD52EA1ull, "WithoutFile (its own inlined search and append)" },
+			} },
+			.sites = { {
+				{ 14570, 230, 14580 },
+				{ 14571, 155, 14580 },
+				{ 14572, 19, 14580 },
+				{ 14593, 469, 14569 },
+				{ 14623, 144, 14569 },
+				{ 14593, 420, 14570 },
+				{ 14623, 182, 14570 },
+			} },
+		};
+
+		// SkyrimSE.exe 1.5.97.0. The TESForm constructor (ID 14438) calls TESForm::SetFile (ID 14467) instead of
+		// carrying a copy, so sites 3 and 5 do not exist; every way into the table passes the other five.
+		constexpr Image k1597{
+			.findOrAdd = 14423,
+			.withFileAdded = 14415,
+			.withoutFile = 14416,
+			.tableData = 0x1EC3C98,
+			.tableCount = 0x1EC3CA8,
+			.code = { {
+				{ 14423, 0, 429, 0x986DB07C7F713825ull, "FindOrAdd" },
+				{ 14415, 0, 394, 0x78E81BEB656CCC0Aull, "WithFileAdded" },
+				{ 14416, 0, 620, 0x150A12D3C0BF4324ull, "WithoutFile (its own inlined search and append)" },
+			} },
+			.sites = { {
+				{ 14416, 230, 14423 },
+				{ 14417, 155, 14423 },
+				{ 14418, 19, 14423 },
+				{ 0, 0, 0 },
+				{ 14467, 144, 14415 },
+				{ 0, 0, 0 },
+				{ 14467, 182, 14416 },
+			} },
+		};
+
+		const Image* image = &k1170;
 
 		using FindOrAdd_t = FileArray*(void** a_files, std::uint32_t a_count);
 		using WithFileAdded_t = FileArray*(FileArray* a_list, void* a_file);
@@ -73,7 +115,7 @@ namespace FileLists
 
 		std::array<REL::Relocation<FindOrAdd_t>, kSiteCount> origFind;
 		std::array<REL::Relocation<WithFileAdded_t>, kSiteCount> origAdd;
-		std::array<REL::Relocation<WithFileAdded_t>, kSiteCount> origWithout; // ID 14570 has the same signature as 14569
+		std::array<REL::Relocation<WithFileAdded_t>, kSiteCount> origWithout; // WithoutFile has the same signature as WithFileAdded
 		std::unique_ptr<Core> core;
 		Settings settings;
 		loadaccel::ThreadPicture threads;
@@ -250,7 +292,7 @@ namespace FileLists
 		bool ImageIsTheAnalysedOne(std::array<std::uintptr_t, kSiteCount>& a_sites)
 		{
 			bool ok = true;
-			for (const auto& code : kCode) {
+			for (const auto& code : image->code) {
 				const auto hash = loadaccel::CodeHash(REL::ID(code.id).address() + code.offset, code.size);
 				if (hash != code.hash) {
 					logs::error("ID {} + {} ({}) is not the code that was analysed (hash {:016X}, expected {:016X}): another plugin patched it, or the image differs",
@@ -259,26 +301,44 @@ namespace FileLists
 				}
 			}
 			for (std::size_t i = 0; i < kSiteCount; ++i) {
-				a_sites[i] = REL::ID(kSites[i].id).address() + kSites[i].offset;
-				if (!loadaccel::IsCallTo(a_sites[i], REL::ID(kSites[i].callee).address())) {
-					logs::error("call site {} (ID {} + {}) is not the expected call to ID {}", i, kSites[i].id, kSites[i].offset, kSites[i].callee);
+				const auto& site = image->sites[i];
+				if (!site.id) {
+					continue;
+				}
+				a_sites[i] = REL::ID(site.id).address() + site.offset;
+				if (!loadaccel::IsCallTo(a_sites[i], REL::ID(site.callee).address())) {
+					logs::error("call site {} (ID {} + {}) is not the expected call to ID {}", i, site.id, site.offset, site.callee);
 					ok = false;
 				}
 			}
-			// ID 14580 loads the table's count (+0x29, 6 bytes) and its data pointer (+0x2F, 7 bytes).
+			// FindOrAdd loads the table's count (+0x29, 6 bytes) and its data pointer (+0x2F, 7 bytes).
 			const auto base = REL::Module::get().base();
-			const auto find = REL::ID(kFindOrAdd).address();
-			if (loadaccel::RipTarget(find + 0x29, 6) != base + kTableCount || loadaccel::RipTarget(find + 0x2F, 7) != base + kTableData) {
-				logs::error("ID {} does not read the table at +{:X} / +{:X}", kFindOrAdd, kTableData, kTableCount);
+			const auto find = REL::ID(image->findOrAdd).address();
+			if (loadaccel::RipTarget(find + 0x29, 6) != base + image->tableCount || loadaccel::RipTarget(find + 0x2F, 7) != base + image->tableData) {
+				logs::error("ID {} does not read the table at +{:X} / +{:X}", image->findOrAdd, image->tableData, image->tableCount);
 				ok = false;
 			}
 			return ok;
 		}
+
+		// "7 call sites wrapped (3 of ID 14580, 2 of ID 14569, 2 of ID 14570)"
+		std::string DescribeSites()
+		{
+			std::size_t total = 0;
+			std::string parts;
+			for (const auto callee : { image->findOrAdd, image->withFileAdded, image->withoutFile }) {
+				const auto n = std::ranges::count_if(image->sites, [&](const Site& a_site) { return a_site.id && a_site.callee == callee; });
+				total += static_cast<std::size_t>(n);
+				parts += std::format("{}{} of ID {}", parts.empty() ? "" : ", ", n, callee);
+			}
+			return std::format("{} call sites wrapped ({})", total, parts);
+		}
 	}
 
-	bool Install(const Settings& a_settings)
+	bool Install(const Settings& a_settings, loadaccel::Runtime a_runtime)
 	{
 		settings = a_settings;
+		image = a_runtime == loadaccel::Runtime::k1597 ? &k1597 : &k1170;
 		if (settings.stage < 1 || settings.stage > 3) {
 			logs::info("source-file lists: stage {} = off, nothing installed", settings.stage);
 			return true;
@@ -290,21 +350,25 @@ namespace FileLists
 		}
 
 		const auto base = REL::Module::get().base();
-		core = std::make_unique<Core>(reinterpret_cast<FileArray** const*>(base + kTableData), reinterpret_cast<const std::uint32_t*>(base + kTableCount),
+		core = std::make_unique<Core>(reinterpret_cast<FileArray** const*>(base + image->tableData), reinterpret_cast<const std::uint32_t*>(base + image->tableCount),
 			static_cast<Mode>(settings.stage), settings.compareFirst, settings.sampleEvery, &Now, &Report, settings.digest ? &FileIdentity : nullptr);
 		tableAtInstall = core->TableCount();
 
 		auto& trampoline = SKSE::GetTrampoline();
-		origFind[0] = trampoline.write_call<5>(address[0], FindThunk<0>);
-		origFind[1] = trampoline.write_call<5>(address[1], FindThunk<1>);
-		origFind[2] = trampoline.write_call<5>(address[2], FindThunk<2>);
-		origAdd[3] = trampoline.write_call<5>(address[3], AddThunk<3>);
-		origAdd[4] = trampoline.write_call<5>(address[4], AddThunk<4>);
-		origWithout[5] = trampoline.write_call<5>(address[5], WithoutThunk<5>);
-		origWithout[6] = trampoline.write_call<5>(address[6], WithoutThunk<6>);
-		logs::info("source-file lists: stage {} ({}); 7 call sites wrapped (3 of ID 14580, 2 of ID 14569, 2 of ID 14570), table {} entries at install{}",
-			settings.stage,
-			StageName(settings.stage), tableAtInstall,
+		const auto wrap = [&](std::size_t a_site, auto& a_original, auto a_thunk) {
+			if (image->sites[a_site].id) {
+				a_original[a_site] = trampoline.write_call<5>(address[a_site], a_thunk);
+			}
+		};
+		wrap(0, origFind, FindThunk<0>);
+		wrap(1, origFind, FindThunk<1>);
+		wrap(2, origFind, FindThunk<2>);
+		wrap(3, origAdd, AddThunk<3>);
+		wrap(4, origAdd, AddThunk<4>);
+		wrap(5, origWithout, WithoutThunk<5>);
+		wrap(6, origWithout, WithoutThunk<6>);
+		logs::info("source-file lists: stage {} ({}); {}, table {} entries at install{}", settings.stage, StageName(settings.stage), DescribeSites(),
+			tableAtInstall,
 			settings.stage == 3 ? std::format("; first {} index answers all checked, then 1 in {}", settings.compareFirst, settings.sampleEvery) : "");
 		return true;
 	}
@@ -343,7 +407,7 @@ namespace FileLists
 		logs::info("  calls {}: own list returned {}, found in the table {}, appended {}; engine function ran {} times, {} of them only to check an answer; "
 				   "list elements hashed {}, table entries a linear search could visit {}",
 			total.calls, total.ownList, total.hits, total.misses, total.engineCalls, total.checked, total.keyElements, total.scannable);
-		// Entries that no wrapped call appended: ID 14570 carries its own inlined search and append.
+		// Entries that no wrapped call appended: WithoutFile carries its own inlined search and append.
 		const std::int64_t outside = core->GetMode() == Mode::kCount ?
 										 static_cast<std::int64_t>(snapshot.tableCount) - tableAtInstall - static_cast<std::int64_t>(total.misses) :
 										 static_cast<std::int64_t>(snapshot.foreignEntries);
@@ -365,9 +429,13 @@ namespace FileLists
 			logs::info("  audit skipped: the index is switched off (fell back)");
 		}
 		for (std::size_t i = 0; i < kSiteCount; ++i) {
+			const auto& where = image->sites[i];
+			if (!where.id) {
+				continue;  // no such call on this runtime
+			}
 			const auto& site = core->Site(i);
-			logs::info("  site {} (ID {} + {}, calls {}): calls {}, own list {}, found {}, appended {}, engine {:.2f} s, wrapper {:.2f} s", i, kSites[i].id,
-				kSites[i].offset, kSites[i].callee, site.calls.load(), site.ownList.load(), site.hits.load(), site.misses.load(),
+			logs::info("  site {} (ID {} + {}, calls {}): calls {}, own list {}, found {}, appended {}, engine {:.2f} s, wrapper {:.2f} s", i, where.id,
+				where.offset, where.callee, site.calls.load(), site.ownList.load(), site.hits.load(), site.misses.load(),
 				Seconds(site.engineTicks.load()), Seconds(site.ticks.load()));
 		}
 		logs::info("  threads: {}; calls that waited for the index lock {}",

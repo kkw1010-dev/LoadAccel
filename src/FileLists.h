@@ -4,6 +4,8 @@
 
 #include "PCH.h"
 
+#include "Runtime.h"
+
 namespace FileLists
 {
 	struct Settings
@@ -15,7 +17,7 @@ namespace FileLists
 	};
 
 	// False: something about the image is not what the analysis was done on; nothing was installed.
-	bool Install(const Settings& a_settings);
+	bool Install(const Settings& a_settings, loadaccel::Runtime a_runtime);
 
 	// One summary block in the log. a_audit walks the whole table (kDataLoaded).
 	void Summary(const char* a_when, bool a_audit);

@@ -5,6 +5,8 @@
 
 #include "PCH.h"
 
+#include "Runtime.h"
+
 namespace LargeRefs
 {
 	struct Settings
@@ -16,7 +18,7 @@ namespace LargeRefs
 	};
 
 	// False: something about the image is not what the analysis was done on; nothing was installed.
-	bool Install(const Settings& a_settings);
+	bool Install(const Settings& a_settings, loadaccel::Runtime a_runtime);
 
 	// One summary block in the log. Walks every list of the worldspaces seen so far.
 	void Summary(const char* a_when);

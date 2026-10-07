@@ -41,11 +41,14 @@ def judge(path):
     b = {"first": None, "last": 0, "skipped": 0, "sec": ""}
     mism = fell = unclean = errors = summaries = 0
     installed = {"A": None, "B": None}
+    finished = False  # 0.3.1 on: "data load finished: kDataLoaded +N s" at every stage, 0 included
     for n, line in enumerate(lines, 1):
         text = line.split("] ", 2)[-1] if line.startswith("[") else line
         m = re.search(r"LoadAccel (\S+) \(built for stages (\d) / (\d)\), runtime (\S+)", text)
         if m:
             r["version"], r["runtime"] = m[1], m[4]
+        if text.startswith("data load finished"):
+            finished = True
         if "nothing installed" in text:
             if text.startswith("runtime is not"):
                 installed = {"A": "runtime", "B": "runtime"}
@@ -103,8 +106,9 @@ def judge(path):
              b_calls_after_load=(b["last"] - b["first"]) if b["first"] is not None else 0, b_seconds=b["sec"],
              session_seconds=round(span))
     missing = []
-    if "kDataLoaded" not in events:
-        missing.append("data load did not finish (no kDataLoaded summary)")
+    loaded = "kDataLoaded" in events or finished
+    if not loaded:
+        missing.append("data load did not finish (no kDataLoaded summary or line)")
     for ev, what in (("kNewGame", "new game"), ("kPostLoadGame", "save load"), ("kSaveGame", "save")):
         if ev not in events:
             missing.append(what)
@@ -114,11 +118,11 @@ def judge(path):
         missing.append("part B after the data load (no call)")
     if bad:
         verdict = "FAIL"
+    elif not loaded and any(isinstance(installed[k], int) for k in "AB"):
+        verdict = "FAIL"
+        bad.append("no data-load end: the session ended during the load (crash or closed), or the log is cut")
     elif installed["A"] != 3 and installed["B"] != 3:
         verdict = "INERT"
-    elif "kDataLoaded" not in events:
-        verdict = "FAIL"
-        bad.append("no kDataLoaded summary: the session ended during the load (crash or closed), or the log is cut")
     else:
         verdict = "PASS"
     r["verdict"], r["not_exercised"] = verdict, "; ".join(missing)

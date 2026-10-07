@@ -1,5 +1,6 @@
 // LoadAccel: runtime patches for two engine hot spots in the data load (README.md).
-// Personal build for SkyrimSE.exe 1.6.1170.0 only; on any other runtime it logs one line and does nothing.
+// For SkyrimSE.exe 1.5.97.0 and 1.6.1170.0 (one set of addresses and code hashes for each, Runtime.h); on any other
+// runtime it logs one line and does nothing.
 //
 // Each target is built in stages (README.md): 1 counts, 2 keeps an index beside the engine and compares
 // every call, 3 uses the index and keeps checking a sample. The stages built in are LOADACCEL_STAGE (source-file
@@ -10,12 +11,14 @@
 
 #include "FileLists.h"
 #include "LargeRefs.h"
+#include "Runtime.h"
 #include "Timing.h"
 
 namespace
 {
-	// The only runtime the offsets and code hashes were read from.
-	constexpr REL::Version kRuntime{ 1, 6, 1170, 0 };
+	// The runtimes the offsets and code hashes were read from.
+	constexpr REL::Version k1597{ 1, 5, 97, 0 };
+	constexpr REL::Version k1170{ 1, 6, 1170, 0 };
 
 	std::filesystem::path IniPath()
 	{
@@ -77,6 +80,8 @@ namespace
 	{
 		switch (a_message->type) {
 		case SKSE::MessagingInterface::kDataLoaded:
+			// Written at every stage, 0 included, so a launch with both parts off still marks the data-load end.
+			logs::info("data load finished: kDataLoaded +{:.1f} s after plugin load", loadaccel::Seconds(loadaccel::Now() - loadaccel::loadTick));
 			Summaries("kDataLoaded");
 			LargeRefs::EndOfDataLoad();
 			break;
@@ -120,15 +125,16 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	const auto runtime = a_skse->RuntimeVersion();
 	logs::info("LoadAccel {} (built for stages {} / {}), runtime {}", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string(), LOADACCEL_STAGE,
 		LOADACCEL_B_STAGE, runtime.string());
-	if (runtime != kRuntime) {
-		logs::info("runtime is not {}: nothing installed", kRuntime.string());
+	if (runtime != k1597 && runtime != k1170) {
+		logs::info("runtime is not {} or {}: nothing installed", k1597.string(), k1170.string());
 		return true;
 	}
+	const auto which = runtime == k1597 ? loadaccel::Runtime::k1597 : loadaccel::Runtime::k1170;
 
 	const auto settings = ReadSettings();
 	SKSE::AllocTrampoline(256);
-	FileLists::Install(settings.fileLists);
-	LargeRefs::Install(settings.largeRefs);
+	FileLists::Install(settings.fileLists, which);
+	LargeRefs::Install(settings.largeRefs, which);
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
 	return true;
 }
