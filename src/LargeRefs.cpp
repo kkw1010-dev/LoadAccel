@@ -126,6 +126,30 @@ namespace LargeRefs
 			} },
 		};
 
+		// SkyrimSE.exe 1.6.640.0 (unwind funclet: ID 116391, as on 1.6.1170): the same IDs and the same code but for
+		// the displacements, and the four calls at the 1.6.1170 offsets. The walk (18242) has no displacement to
+		// another place, so its hash is the 1.6.1170 one.
+		constexpr Image k640{
+			.remove = 18216,
+			.append = 18215,
+			.load = 18214,
+			.destroy = 18213,
+			.code = { {
+				{ 18216, 0, 103, 0x9459614EC1D7BE2Full, "Remove: the two walks" },
+				{ 18242, 0, 253, 0x0D23C00649ABBDC1ull, "the walk over one map" },
+				{ 18215, 0, 544, 0x15E172F95344E666ull, "Append" },
+				{ 19507, 2139, 30, 0xF1441B2C086E987Aull, "InitItemImpl: formID and worldspace + 0x250 into Remove, then Readd" },
+				{ 18218, 0, 86, 0x82B51804939BC7E0ull, "Readd, up to its first call" },
+				{ 18218, 90, 282, 0x0206F544F8CFDE78ull, "Readd, after its first call" },
+			} },
+			.sites = { {
+				{ 19507, 2149, 18216 },
+				{ 18218, 303, 18215 },
+				{ 20453, 1561, 18214 },
+				{ 20447, 967, 18213 },
+			} },
+		};
+
 		const Image* image = &k1170;
 
 		const Image* ImageFor(loadaccel::Runtime a_runtime)
@@ -133,6 +157,8 @@ namespace LargeRefs
 			switch (a_runtime) {
 			case loadaccel::Runtime::k1597:
 				return &k1597;
+			case loadaccel::Runtime::k640:
+				return &k640;
 			case loadaccel::Runtime::k17104:
 				return &k17104;
 			default:

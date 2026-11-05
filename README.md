@@ -1,6 +1,6 @@
 # LoadAccel
 
-**Test version. Skyrim Special Edition 1.5.97.0, 1.6.1170.0 and 1.7.104.0 (Steam) only.** On every other runtime the
+**Test version. Skyrim Special Edition 1.5.97.0, 1.6.640.0, 1.6.1170.0 and 1.7.104.0 (Steam) only.** On every other runtime the
 plugin installs nothing and writes one line to its log.
 
 An SKSE plugin that shortens the data load (launch to main menu) on very large load orders by taking two linear
@@ -8,7 +8,7 @@ searches out of the engine's load path. On the author's load order (about 3,700 
 256 s to 196 s. Both costs grow with the number of plugins and overrides; a small load order gains little.
 
 Binary: test archives with the licence, the third-party notices and the exact source as a second archive. 0.3.1
-adds Skyrim SE 1.5.97 to the same two parts, 0.3.2 adds 1.7.104; nothing else changed. The 0.3.0 test build is on Nexus Mods as
+adds Skyrim SE 1.5.97 to the same two parts, 0.3.2 adds 1.7.104, 0.3.3 adds 1.6.640; nothing else changed. The 0.3.0 test build is on Nexus Mods as
 "LoadAccel - Faster Data Load (Test Build)"; tag `v0.3.0-test-gpl` is its source under GPL-3.0-or-later, apart from
 the plugin author string that DLL was built with (see Licence).
 
@@ -16,14 +16,14 @@ the plugin author string that DLL was built with (see Licence).
 
 **A. Source-file lists.** Every form keeps a pointer to a shared list of the plugin files that define or override
 it. The engine keeps one global table of the distinct lists and, for every record a plugin adds or overrides,
-searches that table from the start for an equal list (Address Library IDs 14580, 14569, 14570 on 1.6.1170 and
-1.7.104; 14423, 14415, 14416 on 1.5.97). With tens of
+searches that table from the start for an equal list (Address Library IDs 14580, 14569, 14570 on 1.6.640,
+1.6.1170 and 1.7.104; 14423, 14415, 14416 on 1.5.97). With tens of
 thousands of distinct lists and over a million lookups this is about 34 s here. LoadAccel keeps a hash index of
 the table and answers "it is already entry N"; a list that is not in the table yet is added by the engine's own
 function.
 
 **B. Large references.** When an exterior reference of a non-master file is initialised
-(`TESObjectREFR::InitItemImpl`, ID 19507, also on 1.7.104; 19105 on 1.5.97), the engine removes its FormID from the
+(`TESObjectREFR::InitItemImpl`, ID 19507, also on 1.6.640 and 1.7.104; 19105 on 1.5.97), the engine removes its FormID from the
 worldspace's large-reference lists by walking every list of both maps (ID 18216 / 18242; 17804 / 17828 on 1.5.97), then lists
 it again. For a reference that is in no
 list the walk reads everything and changes nothing; that is about 37 s here. LoadAccel keeps, per worldspace, the
@@ -44,10 +44,10 @@ set of FormIDs that were ever listed and skips the walk for a FormID that is not
 - **Threads.** The engine takes no lock around this table. LoadAccel serialises every access that goes through the
   seven wrapped call sites, which are all the ways into those functions (five on 1.5.97, where the `TESForm`
   constructor calls `TESForm::SetFile` instead of carrying its own copy of it).
-- **Three runtimes, one table each.** Every Address Library ID, call offset and code hash exists once for 1.6.1170,
-  once for 1.5.97 and once for 1.7.104 (`src/FileLists.cpp`, `src/LargeRefs.cpp`); the runtime version picks one set
-  at load. 1.7.104 keeps the 1.6.1170 IDs and code; only the displacements inside the code, two globals and one call
-  offset moved.
+- **Four runtimes, one table each.** Every Address Library ID, call offset and code hash exists once for 1.6.1170,
+  once for 1.5.97, once for 1.6.640 and once for 1.7.104 (`src/FileLists.cpp`, `src/LargeRefs.cpp`); the runtime
+  version picks one set at load. 1.6.640 and 1.7.104 keep the 1.6.1170 IDs and code; only the displacements inside
+  the code and two globals moved (on 1.7.104 also one call offset).
 - **After the main menu**, A stays active. B stops skipping at the end of the data load: in game the engine does
   every walk, and LoadAccel only tests 1 call in 64 and logs whether a skip would have been right.
 
@@ -57,9 +57,9 @@ audits is the gate before stage 3.
 
 ## Requirements
 
-SKSE64 for your runtime (2.0.20 for 1.5.97, 2.2.x for 1.6.1170, 2.3.1 or later for 1.7.104) and Address Library
-for SKSE Plugins (the SE file `version-1-5-97-0.bin` for 1.5.97, the 1.6.x "all in one" for 1.6.1170, v13 or later
-with `versionlib-1-7-104-0.bin` for 1.7.104). No ESP, no scripts, nothing stored in saves.
+SKSE64 for your runtime (2.0.20 for 1.5.97, 2.2.3 for 1.6.640, 2.2.x for 1.6.1170, 2.3.1 or later for 1.7.104) and
+Address Library for SKSE Plugins (the SE file `version-1-5-97-0.bin` for 1.5.97, the 1.6.x "all in one" for 1.6.640
+and 1.6.1170, v13 or later with `versionlib-1-7-104-0.bin` for 1.7.104). No ESP, no scripts, nothing stored in saves.
 
 ## Build
 
@@ -142,6 +142,15 @@ Verified for 1.7.104 (0.3.2), on the Steam base game with SKSE 2.3.1:
   clean), then both parts on twice (0 mismatches, audits clean, no fallback). The base game is small: the load took
   the same time with LoadAccel on and off (about 5.8 s to the end of the data load).
 
+Verified for 1.6.640 (0.3.3), on a separate vanilla install made from the Steam 1.6.640 files, with SKSE 2.2.3:
+
+- before any launch: the same 16 functions were compared instruction by instruction with their 1.6.1170 twins. They
+  keep their Address Library IDs and call offsets, and the code LoadAccel relies on differs only in displacements
+  that reach the same places. The table globals moved by -0x19E1F0;
+- four launches to the end of the data load: every call of A compared against the engine (194,808 calls,
+  0 mismatches, audits clean), then both parts on (0 mismatches, audits clean, no fallback). The base game is small:
+  the load took about the same time with LoadAccel on and off (about 4.8 s to the end of the data load).
+
 Not verified:
 
 - part B after the data load: the engine made no such call in those sessions (B does not skip there anyway);
@@ -152,6 +161,7 @@ Not verified:
   builds of common SKSE plugins (if one patches the same code, that part installs nothing and the log says so);
 - on 1.7.104: anything after the main menu, a large 1.7.104 load order (part B's skip path gets no call in the base
   game), and 1.7.104 builds of other SKSE plugins;
+- on 1.6.640: the same as on 1.7.104 (after the main menu, a large load order, other SKSE plugins built for it);
 - any other runtime. Supporting one means reading the same functions again on that executable.
 
 The large-reference lists differ between two launches of the unpatched game as well (order inside lists, a few
@@ -172,5 +182,8 @@ version on); its source archive carries that line as it was built.
 The 0.3.1 test build (DLL SHA-256 `E8C480125DFD7D772DD646CCAB78624C8DC6BB8B270759667D74582AA9ABAB0B`) was built from
 the 0.3.1 source as it was.
 
-The 0.3.2 test build (DLL SHA-256 `52F80C6361B6CA0E11FBE1D5B6E95295526A6F49FCFB621F59136F651BBB43CF`) is built from
+The 0.3.2 test build (DLL SHA-256 `52F80C6361B6CA0E11FBE1D5B6E95295526A6F49FCFB621F59136F651BBB43CF`) was built from
+the 0.3.2 source as it was.
+
+The 0.3.3 test build (DLL SHA-256 `09BB5E695F9B0885C1FCE28BF1283B5E7085F0AD996EF59F5A75B4BA5098D31C`) is built from
 this source as it is.

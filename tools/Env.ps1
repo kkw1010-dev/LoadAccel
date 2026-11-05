@@ -4,6 +4,7 @@
 #   COMMONLIB_DIR   CommonLibSSE-NG checkout (alandtse/CommonLibVR, branch ng)
 #   LOADACCEL_IMAGE optional: a memory image of SkyrimSE.exe 1.6.1170 for the constants check
 #   LOADACCEL_IMAGE_SE optional: SkyrimSE.exe 1.5.97 without the Steam stub (Steamless output) for the same check
+#   LOADACCEL_IMAGE_AE640 optional: SkyrimSE.exe 1.6.640 without the Steam stub (Steamless output) for the same check
 #   LOADACCEL_IMAGE_AE17 optional: SkyrimSE.exe 1.7.104 (the Steam file; its stub leaves .text unencrypted) for the same check
 #   $PrivacyWords   extra strings that must not appear in the DLL
 $PrivacyWords = @()

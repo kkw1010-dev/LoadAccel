@@ -131,6 +131,31 @@ namespace FileLists
 			} },
 		};
 
+		// SkyrimSE.exe 1.6.640.0: the 1.6.1170 functions, instruction for instruction, under the same IDs (as on
+		// 1.7.104). Only the displacements moved, so the hashes and the table globals (-0x19E1F0) are new; the sites
+		// are the same.
+		constexpr Image k640{
+			.findOrAdd = 14580,
+			.withFileAdded = 14569,
+			.withoutFile = 14570,
+			.tableData = 0x1F5D978,
+			.tableCount = 0x1F5D988,
+			.code = { {
+				{ 14580, 0, 360, 0xD95A836D2E3ED645ull, "FindOrAdd" },
+				{ 14569, 0, 391, 0xDE5CD8042C4DB491ull, "WithFileAdded" },
+				{ 14570, 0, 631, 0x637D547F7CBFF9D4ull, "WithoutFile (its own inlined search and append)" },
+			} },
+			.sites = { {
+				{ 14570, 230, 14580 },
+				{ 14571, 155, 14580 },
+				{ 14572, 19, 14580 },
+				{ 14593, 469, 14569 },
+				{ 14623, 144, 14569 },
+				{ 14593, 420, 14570 },
+				{ 14623, 182, 14570 },
+			} },
+		};
+
 		const Image* image = &k1170;
 
 		const Image* ImageFor(loadaccel::Runtime a_runtime)
@@ -138,6 +163,8 @@ namespace FileLists
 			switch (a_runtime) {
 			case loadaccel::Runtime::k1597:
 				return &k1597;
+			case loadaccel::Runtime::k640:
+				return &k640;
 			case loadaccel::Runtime::k17104:
 				return &k17104;
 			default:

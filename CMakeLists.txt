@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(LoadAccel VERSION 0.3.2 LANGUAGES CXX)
+project(LoadAccel VERSION 0.3.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

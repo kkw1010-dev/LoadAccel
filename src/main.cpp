@@ -1,6 +1,6 @@
 // LoadAccel: runtime patches for two engine hot spots in the data load (README.md).
-// For SkyrimSE.exe 1.5.97.0, 1.6.1170.0 and 1.7.104.0 (one set of addresses and code hashes for each, Runtime.h); on
-// any other runtime it logs one line and does nothing.
+// For SkyrimSE.exe 1.5.97.0, 1.6.640.0, 1.6.1170.0 and 1.7.104.0 (one set of addresses and code hashes for each,
+// Runtime.h); on any other runtime it logs one line and does nothing.
 //
 // Each target is built in stages (README.md): 1 counts, 2 keeps an index beside the engine and compares
 // every call, 3 uses the index and keeps checking a sample. The stages built in are LOADACCEL_STAGE (source-file
@@ -18,6 +18,7 @@ namespace
 {
 	// The runtimes the offsets and code hashes were read from.
 	constexpr REL::Version k1597{ 1, 5, 97, 0 };
+	constexpr REL::Version k640{ 1, 6, 640, 0 };
 	constexpr REL::Version k1170{ 1, 6, 1170, 0 };
 	constexpr REL::Version k17104{ 1, 7, 104, 0 };
 
@@ -126,11 +127,12 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	const auto runtime = a_skse->RuntimeVersion();
 	logs::info("LoadAccel {} (built for stages {} / {}), runtime {}", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string(), LOADACCEL_STAGE,
 		LOADACCEL_B_STAGE, runtime.string());
-	if (runtime != k1597 && runtime != k1170 && runtime != k17104) {
-		logs::info("runtime is not {}, {} or {}: nothing installed", k1597.string(), k1170.string(), k17104.string());
+	if (runtime != k1597 && runtime != k640 && runtime != k1170 && runtime != k17104) {
+		logs::info("runtime is not {}, {}, {} or {}: nothing installed", k1597.string(), k640.string(), k1170.string(), k17104.string());
 		return true;
 	}
-	const auto which = runtime == k1597 ? loadaccel::Runtime::k1597 : runtime == k17104 ? loadaccel::Runtime::k17104 : loadaccel::Runtime::k1170;
+	const auto which = runtime == k1597 ? loadaccel::Runtime::k1597 : runtime == k640 ? loadaccel::Runtime::k640 :
+		runtime == k17104 ? loadaccel::Runtime::k17104 : loadaccel::Runtime::k1170;
 
 	const auto settings = ReadSettings();
 	SKSE::AllocTrampoline(256);
